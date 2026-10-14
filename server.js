@@ -160,8 +160,18 @@ async function route(req,res) {
     for(const r of body.rounds){const issue=validateRound(r);if(issue)return send(res,400,{error:"invalid_round",message:issue});}
     const verified=body.source_verified===true;
     const rows=body.rounds.map(r=>({provider:"msport",game_code:"aviator",external_round_id:String(r.round_id).trim(),round_ended_at:r.ended_at?new Date(r.ended_at).toISOString():null,crash_multiplier:Number(Number(r.multiplier).toFixed(4)),source,source_verified:verified,round_hash:r.round_hash||null,server_hash:r.server_hash||null,raw_payload:{ingestion_method:"protected_api",supplied_by_operator:true}}));
-    try{const saved=await db("game_rounds",{method:"POST",query:{on_conflict:"provider,game_code,external_round_id"},prefer:"resolution=merge-duplicates,return=representation",body:rows});return send(res,201,{ok:true,received:rows.length,written:Array.isArray(saved)?saved.length:0,source,sourceVerified:verified,note:verified?"Operator marked batch verified; independently confirm provenance.":"Stored as unverified and excluded from estimates."});}
-    catch(e){return send(res,502,{error:"ingestion_failed",message:e.details||"Database write failed."});}
+    let runId=null;
+    try {
+      const run=await db("ingestion_runs",{method:"POST",prefer:"return=representation",body:{source,rounds_received:rows.length,rounds_inserted:0,status:"running"}});
+      runId=Array.isArray(run)?run[0]?.id:null;
+      const saved=await db("game_rounds",{method:"POST",query:{on_conflict:"provider,game_code,external_round_id"},prefer:"resolution=ignore-duplicates,return=representation",body:rows});
+      const inserted=Array.isArray(saved)?saved.length:0;
+      if(runId!==null)await db("ingestion_runs",{method:"PATCH",query:{id:"eq."+runId},prefer:"return=minimal",body:{finished_at:new Date().toISOString(),rounds_inserted:inserted,status:"success"}});
+      return send(res,201,{ok:true,received:rows.length,inserted,duplicates:rows.length-inserted,source,sourceVerified:verified,ingestionRunId:runId,note:verified?"Operator marked batch verified; independently confirm provenance.":"Stored as unverified and excluded from estimates."});
+    } catch(e) {
+      if(runId!==null)try{await db("ingestion_runs",{method:"PATCH",query:{id:"eq."+runId},prefer:"return=minimal",body:{finished_at:new Date().toISOString(),status:"failed",error_message:String(e.details||e.message||"Database write failed.").slice(0,1000)}});}catch{}
+      return send(res,502,{error:"ingestion_failed",message:e.details||"Database write failed."});
+    }
   }
   if(req.method==="GET")return staticFile(res,url.pathname);
   res.setHeader("Allow","GET, POST");return send(res,405,{error:"method_not_allowed"});
