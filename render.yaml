@@ -3,7 +3,7 @@ services:
     name: msport-aviator-engine
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm test
     startCommand: npm start
     healthCheckPath: /health
     autoDeploy: true
