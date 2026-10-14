@@ -12,7 +12,7 @@ A read-only research dashboard for verified Aviator round history, observed thre
 ## Stack
 - Node.js 20+, built-in HTTP server, no runtime dependencies
 - Supabase Postgres for round history and provenance metadata
-- Render web service
+- Vercel production website, Supabase Postgres, and a restricted Supabase Edge Function for server-side writes
 
 ## Run and test
 ```bash
@@ -22,15 +22,20 @@ npm start
 ```
 Open http://localhost:10000.
 
-## Server-only environment
-Set these in Render's environment settings, never in browser JavaScript or a committed file:
-- `PORT`: supplied by Render; defaults to 10000 locally
+## Server-side environment
+The production Vercel project is already configured with the Supabase URL, read-only key, restricted database-write proxy, and a generated ingestion secret. No keys need to be entered by the operator for normal use.
+
+For a separate self-hosted deployment, configure these in the host's private environment settings only; never commit secret values or put them in browser JavaScript:
+- `PORT`: host-provided port; defaults to 10000 locally
 - `DATA_SOURCE_MODE`: defaults to `demo`
 - `SUPABASE_URL`: project API URL
-- `SUPABASE_SERVICE_ROLE_KEY`: secret service-role key; keep it private and rotate it if exposed
-- `INGESTION_API_KEY`: long random secret required by the protected ingestion endpoint
+- `SUPABASE_ANON_KEY`: public JWT key used for read-only queries under row-level security
+- `SUPABASE_PUBLISHABLE_KEY`: alternative public key for read-only queries
+- `SUPABASE_SERVICE_ROLE_KEY`: optional server-only key for direct database writes
+- `SUPABASE_WRITE_PROXY_KEY`: server-only key for the restricted `aviator-db-write` Edge Function when direct service-role writes are not used
+- `INGESTION_API_KEY`: server-only key required by the protected ingestion endpoint
 
-Do not use the Supabase publishable/anon key for ingestion. Do not paste secrets into GitHub or chat. The API returns no sample results when no verified history is available.
+The deployed database exposes only verified MSport Aviator round history to read-only clients. Database writes go through a restricted server-side path. The API returns no fabricated sample results when no verified history is available.
 
 ## API
 - `GET /health` — service and database readiness (database status is not a provider-feed check)
