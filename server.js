@@ -9,7 +9,8 @@ const ROOT = path.join(__dirname, "public");
 const MODE = process.env.DATA_SOURCE_MODE || "demo";
 const DB_URL = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const DB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const DB_PUBLIC_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || "";
+const DB_PUBLIC_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "";
+const DB_WRITE_PROXY_KEY = process.env.SUPABASE_WRITE_PROXY_KEY || "";
 const INGEST_KEY = process.env.INGESTION_API_KEY || "";
 const TARGETS = [1.2, 1.5, 2, 3, 5, 10];
 const MIME = { ".html":"text/html; charset=utf-8", ".css":"text/css; charset=utf-8", ".js":"text/javascript; charset=utf-8", ".svg":"image/svg+xml" };
@@ -27,14 +28,27 @@ function headers(res) {
   res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
 }
 async function db(table, { method="GET", query={}, body, prefer } = {}) {
-  const key = method === "GET" ? (DB_PUBLIC_KEY || DB_KEY) : DB_KEY;
-  if (!DB_URL || !key) throw new Error("database_not_configured");
-  const url = new URL(DB_URL + "/rest/v1/" + table);
-  Object.entries(query).forEach(([k,v]) => url.searchParams.set(k, String(v)));
-  const r = await fetch(url, { method, headers: { apikey:key, Authorization:"Bearer "+key, "Content-Type":"application/json", ...(prefer?{Prefer:prefer}:{}) }, ...(body===undefined?{}:{body:JSON.stringify(body)}), signal:AbortSignal.timeout(8000) });
+  if (!DB_URL) throw new Error("database_not_configured");
+  const readKey = DB_PUBLIC_KEY || DB_KEY;
+  let r;
+  if (method === "GET" || DB_KEY) {
+    const key = method === "GET" ? readKey : DB_KEY;
+    if (!key) throw new Error("database_not_configured");
+    const url = new URL(DB_URL + "/rest/v1/" + table);
+    Object.entries(query).forEach(([k,v]) => url.searchParams.set(k, String(v)));
+    r = await fetch(url, { method, headers: { apikey:key, Authorization:"Bearer "+key, "Content-Type":"application/json", ...(prefer?{Prefer:prefer}:{}) }, ...(body===undefined?{}:{body:JSON.stringify(body)}), signal:AbortSignal.timeout(8000) });
+  } else {
+    if (!readKey || !DB_WRITE_PROXY_KEY) throw new Error("database_write_proxy_not_configured");
+    r = await fetch(DB_URL + "/functions/v1/aviator-db-write", {
+      method: "POST",
+      headers: { apikey:readKey, Authorization:"Bearer "+readKey, "Content-Type":"application/json", "x-engine-write-key":DB_WRITE_PROXY_KEY },
+      body: JSON.stringify({ table, method, query, body, prefer }),
+      signal: AbortSignal.timeout(10000)
+    });
+  }
   const raw = await r.text();
   let data = null; try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
-  if (!r.ok) { const e = new Error("database_request_failed"); e.status=r.status; e.details=data?.message||data?.hint||"Database request failed"; throw e; }
+  if (!r.ok) { const e = new Error("database_request_failed"); e.status=r.status; e.details=data?.message||data?.hint||data?.error||"Database request failed"; throw e; }
   return data;
 }
 const configured = () => Boolean(DB_URL && (DB_PUBLIC_KEY || DB_KEY));
@@ -152,7 +166,7 @@ async function route(req,res) {
     return send(res,200,{alerts,count:alerts.length});
   }
   if(req.method==="POST"&&url.pathname==="/api/ingest/rounds") {
-    if(!INGEST_KEY||!DB_KEY||!DB_URL)return send(res,503,{error:"ingestion_not_configured",message:"Protected ingestion is disabled until private database-write credentials and the ingestion secret are provisioned."});
+    if(!INGEST_KEY||!DB_URL||(!DB_KEY&&!DB_WRITE_PROXY_KEY))return send(res,503,{error:"ingestion_not_configured",message:"Protected ingestion is disabled until the private database-write proxy and ingestion secret are provisioned."});
     const key=req.headers["x-ingestion-key"];
     if(typeof key!=="string"||key.length!==INGEST_KEY.length||!crypto.timingSafeEqual(Buffer.from(key),Buffer.from(INGEST_KEY)))return send(res,401,{error:"unauthorized",message:"Invalid ingestion key."});
     let body;try{body=await readBody(req);}catch(e){return send(res,e.status||400,{error:e.message,message:e.status===413?"Payload too large.":"Body must be valid JSON."});}
