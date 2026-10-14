@@ -37,7 +37,7 @@ async function db(table, { method="GET", query={}, body, prefer } = {}) {
 }
 const configured = () => Boolean(DB_URL && DB_KEY);
 async function rounds(limit=1000) {
-  return db("game_rounds", { query:{ select:SELECT, source_verified:"eq.true", order:"round_ended_at.desc.nullslast,created_at.desc", limit:Math.min(2000,Math.max(1,limit)) } });
+  return db("game_rounds", { query:{ select:SELECT, provider:"eq.msport", game_code:"eq.aviator", source_verified:"eq.true", order:"round_ended_at.desc.nullslast,created_at.desc", limit:Math.min(2000,Math.max(1,limit)) } });
 }
 function wilson(k,n,z=1.96) {
   if (!n) return {low:null,high:null};
