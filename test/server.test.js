@@ -72,3 +72,18 @@ test("unsupported methods are rejected", async () => {
   const r = await fetch(base + "/health", { method: "POST" });
   assert.equal(r.status, 405);
 });
+
+test("validation endpoint refuses to imply a model edge without a database", async () => {
+  const r = await fetch(base + "/api/validation");
+  const body = await r.json();
+  assert.equal(r.status, 200);
+  assert.equal(body.eligible, false);
+  assert.deepEqual(body.rows, []);
+});
+
+test("round limit validation is consistent even in demo mode", async () => {
+  const r = await fetch(base + "/api/rounds?limit=999999");
+  assert.equal(r.status, 400);
+  const body = await r.json();
+  assert.equal(body.error, "invalid_limit");
+});
