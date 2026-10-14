@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: msport-aviator-engine
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATA_SOURCE_MODE
+        value: demo
+      - key: NODE_VERSION
+        value: 20
