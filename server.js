@@ -126,9 +126,9 @@ async function route(req,res) {
     catch(e){return send(res,503,{error:"database_unavailable",message:"Database read failed; check server logs."});}
   }
   if(req.method==="GET"&&url.pathname==="/api/rounds") {
-    if(!configured())return send(res,200,{data:[],count:0,sourceConnected:false,message:"Database not configured; no round data stored."});
     const limit=Number(url.searchParams.get("limit")||50);
     if(!Number.isInteger(limit)||limit<1||limit>2000)return send(res,400,{error:"invalid_limit",message:"limit must be an integer from 1 to 2000."});
+    if(!configured())return send(res,200,{data:[],count:0,sourceConnected:false,message:"Database not configured; no round data stored."});
     try{const data=await rounds(limit);return send(res,200,{data,count:data.length,sourceConnected:false,message:"Verified historical records only; live provider feed is not connected."});}
     catch(e){return send(res,503,{error:"database_unavailable",message:"Database read failed; check server logs."});}
   }
