@@ -50,6 +50,41 @@ function estimates(data) {
     return {target,probability:p,percent:Number((p*100).toFixed(2)),interval95Percent:{low:Number((ci.low*100).toFixed(2)),high:Number((ci.high*100).toFixed(2))},successes:hits,sampleSize:n,basis:"observed_verified_history",forecast:false};
   });
 }
+
+function logLoss(p, y) {
+  const q = Math.min(1 - 1e-6, Math.max(1e-6, p));
+  return -(y ? Math.log(q) : Math.log(1 - q));
+}
+function walkForwardValidation(input) {
+  const data = input.filter(r => r.round_ended_at && Number.isFinite(Date.parse(r.round_ended_at)))
+    .slice().sort((a,b) => Date.parse(a.round_ended_at) - Date.parse(b.round_ended_at));
+  const minimumTraining = 100;
+  if (data.length <= minimumTraining) return {
+    eligible: false, minimumTrainingRounds: minimumTraining, timestampedVerifiedRounds: data.length,
+    message: "At least 101 timestamped verified rounds are required for this walk-forward check.", rows: []
+  };
+  const rows = TARGETS.map(target => {
+    let modelBrier=0, baselineBrier=0, modelLogLoss=0, baselineLogLoss=0, count=0;
+    for (let i=minimumTraining; i<data.length; i++) {
+      const current = data[i];
+      const y = Number(current.crash_multiplier) >= target ? 1 : 0;
+      const window = data.slice(Math.max(0, i-500), i);
+      const rollingHits = window.reduce((s,r)=>s+(Number(r.crash_multiplier)>=target?1:0),0);
+      const priorHits = data.slice(0,i).reduce((s,r)=>s+(Number(r.crash_multiplier)>=target?1:0),0);
+      const p = (rollingHits+1)/(window.length+2);
+      const baseline = (priorHits+1)/(i+2);
+      modelBrier += (p-y)**2;
+      baselineBrier += (baseline-y)**2;
+      modelLogLoss += logLoss(p,y);
+      baselineLogLoss += logLoss(baseline,y);
+      count++;
+    }
+    const mb=modelBrier/count, bb=baselineBrier/count, ml=modelLogLoss/count, bl=baselineLogLoss/count;
+    return {target, evaluatedRounds:count, rolling500Brier:Number(mb.toFixed(6)), expandingBaselineBrier:Number(bb.toFixed(6)), brierImprovement:Number((bb-mb).toFixed(6)), rolling500LogLoss:Number(ml.toFixed(6)), expandingBaselineLogLoss:Number(bl.toFixed(6)), logLossImprovement:Number((bl-ml).toFixed(6)), testStart:data[minimumTraining].round_ended_at, testEnd:data[data.length-1].round_ended_at, interpretation:"Positive improvement means the rolling-frequency estimator scored better on this historical walk-forward sample; it is not proof of a durable edge."};
+  });
+  return {eligible:true,method:"chronological walk-forward; first 100 rounds for warm-up; rolling window up to 500; Beta(1,1) smoothing",timestampedVerifiedRounds:data.length,minimumTrainingRounds:minimumTraining,testRounds:data.length-minimumTraining,rows,warning:"Retrospective walk-forward results can still overfit through repeated model selection. Preserve a final untouched holdout and run prospective paper testing before making predictive claims."};
+}
+
 function validateRound(r) {
   if (!r || typeof r!=="object" || Array.isArray(r)) return "Each round must be an object.";
   if (!String(r.round_id??"").trim() || String(r.round_id).length>160) return "round_id is required (max 160 characters).";
@@ -101,6 +136,11 @@ async function route(req,res) {
     if(!configured())return send(res,200,{assumptions:{verifiedForMsport:false},rows:[],warning:"No verified historical data is available. No probability estimate is being presented."});
     try{const data=await rounds(2000);if(data.length<30)return send(res,200,{assumptions:{verifiedForMsport:false,sampleSize:data.length},rows:[],warning:"Only "+data.length+" verified rounds are available. Collect more trustworthy history first."});return send(res,200,{assumptions:{verifiedForMsport:true,sourceConnected:false,sampleSize:data.length},rows:estimates(data),warning:"Observed frequencies with 95% Wilson intervals—not next-round forecasts or a guarantee of future results."});}
     catch(e){return send(res,503,{error:"database_unavailable",rows:[],warning:e.details||"Could not calculate estimates."});}
+  }
+  if(req.method==="GET"&&url.pathname==="/api/validation") {
+    if(!configured())return send(res,200,{eligible:false,message:"Database not configured; validation requires verified historical rounds.",rows:[]});
+    try{const data=await rounds(2000);return send(res,200,walkForwardValidation(data));}
+    catch(e){return send(res,503,{error:"database_unavailable",message:e.details||"Could not run validation.",rows:[]});}
   }
   if(req.method==="GET"&&url.pathname==="/api/alerts") {
     const alerts=[];
