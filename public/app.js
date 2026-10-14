@@ -59,7 +59,9 @@ async function refreshDashboard() {
     $("#source-pill").innerHTML = "<i></i> " + (status.sourceConnected ? "SOURCE CONNECTED" : "SOURCE NOT VERIFIED");
     $("#notice-title").textContent = status.database === "connected" ? "Database connected; provider feed still unverified" : "Live feed pending verification";
     $("#notice-copy").textContent = "Historical frequencies describe only the stored sample. They are not forecasts of the next multiplier.";
-    renderProbabilities(probabilities.rows);\n    renderValidation(validation);\n    $("#validation-warning").textContent = validation.warning || validation.message || "Walk-forward validation is not yet available.";
+    renderProbabilities(probabilities.rows);
+    renderValidation(validation);
+    $("#validation-warning").textContent = validation.warning || validation.message || "Walk-forward validation is not yet available.";
     $("#probability-warning").textContent = probabilities.warning || "Observed rates are descriptive, not predictive guarantees.";
     renderAlerts(alerts);
     $("#updated").textContent = "Updated " + new Date().toLocaleTimeString();
