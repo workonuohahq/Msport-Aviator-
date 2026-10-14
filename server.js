@@ -123,24 +123,24 @@ async function route(req,res) {
   if(req.method==="GET"&&url.pathname==="/api/overview") {
     if(!configured())return send(res,200,{roundsStored:0,verifiedRounds:0,sourceConnected:false,model:"empirical-history-only",lastUpdate:null,mode:MODE,database:"not_configured"});
     try{const r=await rounds(2000);return send(res,200,{roundsStored:r.length,verifiedRounds:r.length,sourceConnected:false,model:"empirical-history-only",lastUpdate:r[0]?.round_ended_at||null,mode:MODE,database:"connected",minimumSampleRecommended:1000,sampleAdequateForStrongClaims:r.length>=1000});}
-    catch(e){return send(res,503,{error:"database_unavailable",message:e.details||"Could not read database."});}
+    catch(e){return send(res,503,{error:"database_unavailable",message:"Database read failed; check server logs."});}
   }
   if(req.method==="GET"&&url.pathname==="/api/rounds") {
     if(!configured())return send(res,200,{data:[],count:0,sourceConnected:false,message:"Database not configured; no round data stored."});
     const limit=Number(url.searchParams.get("limit")||50);
     if(!Number.isInteger(limit)||limit<1||limit>2000)return send(res,400,{error:"invalid_limit",message:"limit must be an integer from 1 to 2000."});
     try{const data=await rounds(limit);return send(res,200,{data,count:data.length,sourceConnected:false,message:"Verified historical records only; live provider feed is not connected."});}
-    catch(e){return send(res,503,{error:"database_unavailable",message:e.details||"Could not read rounds."});}
+    catch(e){return send(res,503,{error:"database_unavailable",message:"Database read failed; check server logs."});}
   }
   if(req.method==="GET"&&url.pathname==="/api/probabilities") {
     if(!configured())return send(res,200,{assumptions:{verifiedForMsport:false},rows:[],warning:"No verified historical data is available. No probability estimate is being presented."});
     try{const data=await rounds(2000);if(data.length<30)return send(res,200,{assumptions:{verifiedForMsport:false,sampleSize:data.length},rows:[],warning:"Only "+data.length+" verified rounds are available. Collect more trustworthy history first."});return send(res,200,{assumptions:{verifiedForMsport:true,sourceConnected:false,sampleSize:data.length},rows:estimates(data),warning:"Observed frequencies with 95% Wilson intervals—not next-round forecasts or a guarantee of future results."});}
-    catch(e){return send(res,503,{error:"database_unavailable",rows:[],warning:e.details||"Could not calculate estimates."});}
+    catch(e){return send(res,503,{error:"database_unavailable",rows:[],warning:"Database read failed; check server logs."});}
   }
   if(req.method==="GET"&&url.pathname==="/api/validation") {
     if(!configured())return send(res,200,{eligible:false,message:"Database not configured; validation requires verified historical rounds.",rows:[]});
     try{const data=await rounds(2000);return send(res,200,walkForwardValidation(data));}
-    catch(e){return send(res,503,{error:"database_unavailable",message:e.details||"Could not run validation.",rows:[]});}
+    catch(e){return send(res,503,{error:"database_unavailable",message:"Database read failed; check server logs.",rows:[]});}
   }
   if(req.method==="GET"&&url.pathname==="/api/alerts") {
     const alerts=[];
@@ -170,10 +170,10 @@ async function route(req,res) {
       return send(res,201,{ok:true,received:rows.length,inserted,duplicates:rows.length-inserted,source,sourceVerified:verified,ingestionRunId:runId,note:verified?"Operator marked batch verified; independently confirm provenance.":"Stored as unverified and excluded from estimates."});
     } catch(e) {
       if(runId!==null)try{await db("ingestion_runs",{method:"PATCH",query:{id:"eq."+runId},prefer:"return=minimal",body:{finished_at:new Date().toISOString(),status:"failed",error_message:String(e.details||e.message||"Database write failed.").slice(0,1000)}});}catch{}
-      return send(res,502,{error:"ingestion_failed",message:e.details||"Database write failed."});
+      return send(res,502,{error:"ingestion_failed",message:"Database write failed; check server logs."});
     }
   }
   if(req.method==="GET")return staticFile(res,url.pathname);
   res.setHeader("Allow","GET, POST");return send(res,405,{error:"method_not_allowed"});
 }
-http.createServer((req,res)=>{headers(res);route(req,res).catch(e=>{console.error("request_failed",{path:req.url,message:e.message});if(!res.headersSent)send(res,500,{error:"internal_error",message:"Request could not be completed."});else res.end();});}).listen(PORT,"0.0.0.0",()=>console.log("Aviator engine listening on "+PORT+"; mode="+MODE));
+http.createServer((req,res)=>{headers(res);route(req,res).catch(e=>{console.error("request_failed",{path:req.url,message:e.message,details:e.details||undefined});if(!res.headersSent)send(res,500,{error:"internal_error",message:"Request could not be completed."});else res.end();});}).listen(PORT,"0.0.0.0",()=>console.log("Aviator engine listening on "+PORT+"; mode="+MODE));
