@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b10">
+  <meta name="description" content="Aviator statistical monitoring and probability research dashboard.">
+  <title>Aviator Engine — Statistical Monitor</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">A</div><div><strong>AVIATOR<span> ENGINE</span></strong><small>STATISTICAL MONITOR</small></div></div>
+      <div class="side-label">WORKSPACE</div>
+      <a class="nav active" href="#overview"><span>◫</span> Overview</a>
+      <a class="nav" href="#probabilities"><span>⌁</span> Probabilities</a>
+      <a class="nav" href="#alerts"><span>◉</span> Alerts</a>
+      <a class="nav" href="#data"><span>▤</span> Data integrity</a>
+      <div class="sidebar-foot"><div class="status-dot"></div><div><b>Read-only mode</b><small>No automated betting</small></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div><div class="eyebrow">RESEARCH WORKSPACE / V1</div><h1>Overview</h1></div><div class="top-right"><span class="pill warn"><i></i> DATA SOURCE NOT CONNECTED</span><button id="refresh" class="refresh">↻ <span>Refresh</span></button></div></header>
+      <section class="hero">
+        <div><div class="eyebrow gold">LIVE MONITORING · BASELINE MODE</div><h2>Measure the odds.<br><em>Prove the edge.</em></h2><p>Round history, probability estimates and model validation in one place. No fabricated live data and no unverified prediction claims.</p></div>
+        <div class="hero-orbit"><div class="orbit o1"></div><div class="orbit o2"></div><div class="orbit o3"></div><div class="orbit-core">A<span>·</span></div></div>
+      </section>
+      <div class="notice"><span class="notice-icon">!</span><div><b>Live feed pending verification</b><p>MSport/Scribe API access is not yet confirmed. The figures below are illustrative theoretical baselines, not live forecasts.</p></div><span class="tag">ACTION REQUIRED</span></div>
+      <section class="metrics" id="overview">
+        <article class="metric"><div class="metric-head">VERIFIED ROUNDS <span>▤</span></div><strong id="round-count">—</strong><small>No source connected</small></article>
+        <article class="metric"><div class="metric-head">LIVE SOURCE <span>◉</span></div><strong class="metric-state">Offline</strong><small>Provider access unverified</small></article>
+        <article class="metric"><div class="metric-head">MODEL STATUS <span>⌁</span></div><strong class="metric-state">Baseline</strong><small>No validated predictive edge</small></article>
+        <article class="metric"><div class="metric-head">CLAIMED ACCURACY <span>◎</span></div><strong>—</strong><small>Not claimed; evidence required</small></article>
+      </section>
+      <section class="content-grid">
+        <article class="panel wide" id="probabilities"><div class="panel-head"><div><div class="eyebrow">THEORETICAL REFERENCE</div><h3>Target probability curve</h3></div><span class="panel-badge">ILLUSTRATIVE</span></div><div id="probability-chart" class="chart"><div class="chart-empty">Loading baseline estimates…</div></div><div id="probability-table" class="prob-table"></div><p class="footnote">Illustration assumes a 97% payout factor and a standard crash-game model. MSport's exact configuration is not verified. Past results do not make a future multiplier due.</p></article>
+        <article class="panel" id="alerts"><div class="panel-head"><div><div class="eyebrow">MONITORING</div><h3>System alerts</h3></div><span class="count" id="alert-count">1</span></div><div id="alert-list" class="alert-list"><div class="chart-empty">Loading alerts…</div></div></article>
+        <article class="panel wide" id="data"><div class="panel-head"><div><div class="eyebrow">SOURCE VALIDATION</div><h3>Data integrity</h3></div><span class="panel-badge">READ-ONLY</span></div><div class="integrity-grid"><div><small>Provider identity</small><b id="provider-state">Unverified</b></div><div><small>Historical backfill</small><b>Not available yet</b></div><div><small>Round deduplication</small><b>Pending connector</b></div><div><small>Last successful ingest</small><b>Never</b></div></div></article>
+      </section>
+      <footer><span>AVIATOR ENGINE <b>V1.0.0</b></span><span>Research tool · Not betting advice · <span id="updated">Updating…</span></span></footer>
+    </main>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
