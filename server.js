@@ -117,7 +117,7 @@ async function route(req,res) {
   }
   if(req.method==="GET"&&url.pathname==="/api/status") {
     let database=configured()?"unverified":"not_configured", n=0, last=null;
-    if(configured()){try{const r=await rounds(1);database="connected";n=r.length;last=r[0]?.round_ended_at||null;}catch{database="unreachable";}}
+    if(configured()){try{const r=await rounds(2000);database="connected";n=r.length;last=r[0]?.round_ended_at||null;}catch{database="unreachable";}}
     return send(res,200,{service:"MSport Aviator Statistical Engine",mode:MODE,database,sourceConnected:false,sourceStatus:"not_configured",predictionStatus:n>=100?"historical_estimates_available":"insufficient_verified_history",accuracyClaim:null,lastRoundAt:last,notes:["No authorised MSport/Scribe live feed has been verified or configured.","Only operator-marked verified rounds are included in empirical estimates.","Historical frequencies describe the supplied sample; they do not predict the next round."]});
   }
   if(req.method==="GET"&&url.pathname==="/api/overview") {
