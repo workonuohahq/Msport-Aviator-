@@ -25,6 +25,16 @@ function renderProbabilities(rows) {
     <div class="prob-cell"><small>${row.target}× OBSERVED</small><b>${fmtPercent(row.percent)}</b><small>95% interval ${fmtPercent(row.interval95Percent?.low)}–${fmtPercent(row.interval95Percent?.high)}</small></div>
   `).join("");
 }
+function renderValidation(data) {
+  const host = $("#validation-results");
+  if (!data || !data.eligible || !data.rows?.length) {
+    host.innerHTML = '<div class="chart-empty">Not enough timestamped verified history to run this check.</div>';
+    return;
+  }
+  host.innerHTML = data.rows.map(row => `
+    <div class="prob-cell"><small>${row.target}× BRIER Δ</small><b>${Number(row.brierImprovement).toFixed(4)}</b><small>Log-loss Δ ${Number(row.logLossImprovement).toFixed(4)}</small></div>
+  `).join("");
+}
 function renderAlerts(data) {
   const alerts = data.alerts || [];
   $("#alert-count").textContent = String(alerts.length);
@@ -35,9 +45,9 @@ function renderAlerts(data) {
 async function refreshDashboard() {
   $("#refresh").disabled = true;
   try {
-    const [status, overview, probabilities, alerts] = await Promise.all([
+    const [status, overview, probabilities, validation, alerts] = await Promise.all([
       getJson("/api/status"), getJson("/api/overview"),
-      getJson("/api/probabilities"), getJson("/api/alerts")
+      getJson("/api/probabilities"), getJson("/api/validation"), getJson("/api/alerts")
     ]);
     $("#round-count").textContent = String(overview.verifiedRounds ?? overview.roundsStored ?? 0);
     $("#round-note").textContent = (overview.verifiedRounds ?? 0) >= 1000 ? "Large historical sample" : "Sample still developing";
@@ -49,7 +59,7 @@ async function refreshDashboard() {
     $("#source-pill").innerHTML = "<i></i> " + (status.sourceConnected ? "SOURCE CONNECTED" : "SOURCE NOT VERIFIED");
     $("#notice-title").textContent = status.database === "connected" ? "Database connected; provider feed still unverified" : "Live feed pending verification";
     $("#notice-copy").textContent = "Historical frequencies describe only the stored sample. They are not forecasts of the next multiplier.";
-    renderProbabilities(probabilities.rows);
+    renderProbabilities(probabilities.rows);\n    renderValidation(validation);\n    $("#validation-warning").textContent = validation.warning || validation.message || "Walk-forward validation is not yet available.";
     $("#probability-warning").textContent = probabilities.warning || "Observed rates are descriptive, not predictive guarantees.";
     renderAlerts(alerts);
     $("#updated").textContent = "Updated " + new Date().toLocaleTimeString();
