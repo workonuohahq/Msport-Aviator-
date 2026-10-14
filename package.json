@@ -1,0 +1,14 @@
+{
+  "name": "msport-aviator-statistical-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-only Aviator probability dashboard and data-quality alerts",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
